@@ -31,10 +31,15 @@ def test_create_session_and_send_message_returns_reply() -> None:
     assert first_reply.memory_tokens >= 0
     assert first_reply.mechanism.recalled_artifact_count >= 0
     assert first_reply.mechanism.qualified_artifact_count >= 0
+    assert first_reply.mechanism.committed_state.episodic_trace
     assert first_reply.mechanism.committed_state.semantic_gist
+    assert isinstance(first_reply.mechanism.committed_state.focal_entities, tuple)
+    assert isinstance(first_reply.mechanism.committed_state.relational_map, tuple)
     assert first_reply.mechanism.committed_state.goal_orientation
     assert first_reply.mechanism.committed_state.predictive_cue
-    assert first_reply.mechanism.committed_state.uncertainty_signal in {"low", "medium"}
+    assert first_reply.mechanism.committed_state.uncertainty_signal in {"低", "中"}
+    assert "タスク整合性" in first_reply.mechanism.committed_state.goal_orientation
+    assert first_reply.mechanism.committed_state.predictive_cue[0].startswith("次に")
 
     assert second_reply.turn_id == 2
     assert second_reply.reply

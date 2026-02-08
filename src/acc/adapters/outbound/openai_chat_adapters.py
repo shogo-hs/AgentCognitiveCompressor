@@ -103,13 +103,14 @@ class OpenAICognitiveCompressorModelAdapter(
     ) -> Mapping[str, object]:
         """CCS スキーマ準拠 JSON payload を返す。"""
         instructions = (
-            "You are the ACC Cognitive Compressor Model."
-            " Return only a valid JSON object."
-            " Do not include markdown fences."
+            "あなたは ACC の Cognitive Compressor Model です。"
+            " 有効な JSON object のみを返してください。Markdown フェンスは禁止です。"
             " Required keys: episodic_trace, semantic_gist, focal_entities, relational_map,"
             " goal_orientation, constraints, predictive_cue, uncertainty_signal, retrieved_artifacts."
-            " Array fields must be arrays of non-empty strings."
-            " Keep the state compact and decision-relevant."
+            " 配列フィールドは空文字を含まない文字列配列にしてください。"
+            " CCS の自然言語フィールドは日本語で記述してください。"
+            " ホスト名・ID・製品名など識別子は原文を保持して構いません。"
+            " 状態は簡潔かつ意思決定に必要な情報へ圧縮してください。"
         )
         prompt = _build_compressor_prompt(
             interaction_signal=interaction_signal,
@@ -179,10 +180,10 @@ def _build_compressor_prompt(
     }
 
     return (
-        "Update the ACC cognitive state.\n"
-        "Input JSON:\n"
+        "次の入力 JSON をもとに ACC の次状態を更新してください。\n"
+        "入力:\n"
         f"{json.dumps(prompt_payload, ensure_ascii=False)}\n"
-        "Return the next CCS as JSON object only."
+        "出力は次の CCS を表す JSON object のみを返してください。"
     )
 
 

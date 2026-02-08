@@ -25,9 +25,12 @@ class ChatSessionNotFoundError(KeyError):
 
 @dataclass(frozen=True, slots=True)
 class ChatCommittedStateSummary:
-    """UI/API 向けに公開する CCS 主要項目。"""
+    """UI/API 向けに公開する CCS 全項目。"""
 
+    episodic_trace: tuple[str, ...]
     semantic_gist: str
+    focal_entities: tuple[str, ...]
+    relational_map: tuple[str, ...]
     goal_orientation: str
     constraints: tuple[str, ...]
     predictive_cue: tuple[str, ...]
@@ -144,7 +147,10 @@ class ChatSessionUseCase:
             recalled_artifact_count=len(turn_result.recalled_artifacts),
             qualified_artifact_count=len(turn_result.qualified_artifacts),
             committed_state=ChatCommittedStateSummary(
+                episodic_trace=committed_state.episodic_trace,
                 semantic_gist=committed_state.semantic_gist,
+                focal_entities=committed_state.focal_entities,
+                relational_map=committed_state.relational_map,
                 goal_orientation=committed_state.goal_orientation,
                 constraints=committed_state.constraints,
                 predictive_cue=committed_state.predictive_cue,

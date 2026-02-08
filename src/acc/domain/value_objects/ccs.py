@@ -30,6 +30,6 @@ class CompressedCognitiveState:
             goal_orientation="",
             constraints=(),
             predictive_cue=(),
-            uncertainty_signal="unknown",
+            uncertainty_signal="不明",
             retrieved_artifacts=(),
         )

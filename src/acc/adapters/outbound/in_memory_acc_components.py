@@ -162,17 +162,17 @@ class SimpleCognitiveCompressorAdapter(CognitiveCompressorPort):
             artifact.artifact_id
             for artifact in qualified_artifacts[: self._max_retrieved_artifacts]
         )
-        uncertainty_signal = "low" if retrieved_artifacts else "medium"
+        uncertainty_signal = "低" if retrieved_artifacts else "中"
 
         return CompressedCognitiveState(
             episodic_trace=episodic_trace,
             semantic_gist=semantic_gist,
             focal_entities=_dedupe_and_bound(focal_entities_source, limit=8),
             relational_map=_dedupe_and_bound(relational_source, limit=8),
-            goal_orientation=goal_orientation or "maintain-task-consistency",
+            goal_orientation=goal_orientation or "タスク整合性を維持する",
             constraints=_dedupe_and_bound(constraints_source, limit=8),
             predictive_cue=_dedupe_and_bound(
-                predictive_source or ("next:assess-and-respond",),
+                predictive_source or ("次に状況を評価して応答する",),
                 limit=4,
             ),
             uncertainty_signal=uncertainty_signal,

@@ -350,7 +350,22 @@
           "Qualification",
           `${mechanism.qualified_artifact_count} 件を採用`
         );
+        appendStageRow(
+          card,
+          "Commit: episodic",
+          formatList(mechanism.committed_state.episodic_trace)
+        );
         appendStageRow(card, "Commit: gist", mechanism.committed_state.semantic_gist || "なし");
+        appendStageRow(
+          card,
+          "Commit: entities",
+          formatList(mechanism.committed_state.focal_entities)
+        );
+        appendStageRow(
+          card,
+          "Commit: relations",
+          formatList(mechanism.committed_state.relational_map)
+        );
         appendStageRow(card, "Commit: goal", mechanism.committed_state.goal_orientation || "なし");
         appendStageRow(
           card,
@@ -365,7 +380,7 @@
         appendStageRow(
           card,
           "Commit: uncertainty",
-          mechanism.committed_state.uncertainty_signal || "unknown"
+          mechanism.committed_state.uncertainty_signal || "不明"
         );
         appendStageRow(
           card,

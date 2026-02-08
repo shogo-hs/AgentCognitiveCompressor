@@ -47,10 +47,14 @@ def test_chat_session_flow_works() -> None:
     assert payload["memory_tokens"] >= 0
     assert payload["mechanism"]["recalled_artifact_count"] >= 0
     assert payload["mechanism"]["qualified_artifact_count"] >= 0
+    assert isinstance(payload["mechanism"]["committed_state"]["episodic_trace"], list)
     assert payload["mechanism"]["committed_state"]["semantic_gist"]
+    assert isinstance(payload["mechanism"]["committed_state"]["focal_entities"], list)
+    assert isinstance(payload["mechanism"]["committed_state"]["relational_map"], list)
     assert payload["mechanism"]["committed_state"]["goal_orientation"]
     assert isinstance(payload["mechanism"]["committed_state"]["constraints"], list)
     assert isinstance(payload["mechanism"]["committed_state"]["predictive_cue"], list)
+    assert payload["mechanism"]["committed_state"]["uncertainty_signal"] in {"低", "中"}
     assert isinstance(payload["mechanism"]["committed_state"]["retrieved_artifacts"], list)
 
 

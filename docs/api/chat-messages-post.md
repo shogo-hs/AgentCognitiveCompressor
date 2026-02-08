@@ -67,17 +67,20 @@ curl -X POST 'http://127.0.0.1:8000/api/chat/messages' \
 | --- | --- | --- | --- | --- |
 | recalled_artifact_count | integer | No | Recall で想起した候補 Artifact 件数 | `2` |
 | qualified_artifact_count | integer | No | Qualification で採用した Artifact 件数 | `1` |
-| committed_state | object | No | Commit 後 CCS の主要項目 | `{"semantic_gist":"...","goal_orientation":"..."}` |
+| committed_state | object | No | Commit 後 CCS（全量） | `{"episodic_trace":[...],"semantic_gist":"..."}` |
 
 ### 3.2.2 `mechanism.committed_state` オブジェクト
 
 | field | type | nullable | 説明 | 例 |
 | --- | --- | --- | --- | --- |
+| episodic_trace | array[string] | No | 直近ターンの事象トレース | `["turn:1:Nginx 502 の緩和策を教えて"]` |
 | semantic_gist | string | No | 現在ターンの要点要約 | `Nginx 502 を抑制しつつ原因確認` |
-| goal_orientation | string | No | 継続中のゴール | `reduce_502_without_restart` |
-| constraints | array[string] | No | 制約一覧 | `["no_restart","safe_change_only"]` |
-| predictive_cue | array[string] | No | 次ターンで重視すべき観点 | `["check_upstream_latency"]` |
-| uncertainty_signal | string | No | 不確実性シグナル | `medium` |
+| focal_entities | array[string] | No | 注目エンティティ | `["nginx","upstream"]` |
+| relational_map | array[string] | No | 因果/関係の内部表現 | `["http2有効化後に502増加"]` |
+| goal_orientation | string | No | 継続中のゴール | `タスク整合性を維持する` |
+| constraints | array[string] | No | 制約一覧 | `["営業時間中は再起動しない"]` |
+| predictive_cue | array[string] | No | 次ターンで重視すべき観点 | `["次に状況を評価して応答する"]` |
+| uncertainty_signal | string | No | 不確実性シグナル | `中` |
 | retrieved_artifacts | array[string] | No | CCS に取り込んだ Artifact 参照 | `["turn-evidence-1-1"]` |
 
 ### 3.3 成功レスポンス例
@@ -92,13 +95,18 @@ curl -X POST 'http://127.0.0.1:8000/api/chat/messages' \
     "recalled_artifact_count": 1,
     "qualified_artifact_count": 1,
     "committed_state": {
+      "episodic_trace": [
+        "turn:1:Nginx 502 の緩和策を教えて"
+      ],
       "semantic_gist": "Nginx 502 の緩和策を確認する",
-      "goal_orientation": "maintain-task-consistency",
+      "focal_entities": [],
+      "relational_map": [],
+      "goal_orientation": "タスク整合性を維持する",
       "constraints": [],
       "predictive_cue": [
-        "next:assess-and-respond"
+        "次に状況を評価して応答する"
       ],
-      "uncertainty_signal": "medium",
+      "uncertainty_signal": "中",
       "retrieved_artifacts": []
     }
   }
@@ -118,6 +126,7 @@ curl -X POST 'http://127.0.0.1:8000/api/chat/messages' \
 
 - モデルは既定で `gpt-4.1-mini` を利用する。
 - `OPENAI_MODEL` 環境変数でモデル名を上書きできる。
+- CCS の自然言語フィールドは日本語で管理する（識別子は原文維持）。
 
 ## 6. 実装同期メモ
 

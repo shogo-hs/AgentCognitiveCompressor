@@ -113,7 +113,10 @@ def _register_routes(app: FastAPI) -> None:
                 recalled_artifact_count=reply.mechanism.recalled_artifact_count,
                 qualified_artifact_count=reply.mechanism.qualified_artifact_count,
                 committed_state=CommittedStateResponse(
+                    episodic_trace=list(reply.mechanism.committed_state.episodic_trace),
                     semantic_gist=reply.mechanism.committed_state.semantic_gist,
+                    focal_entities=list(reply.mechanism.committed_state.focal_entities),
+                    relational_map=list(reply.mechanism.committed_state.relational_map),
                     goal_orientation=reply.mechanism.committed_state.goal_orientation,
                     constraints=list(reply.mechanism.committed_state.constraints),
                     predictive_cue=list(reply.mechanism.committed_state.predictive_cue),

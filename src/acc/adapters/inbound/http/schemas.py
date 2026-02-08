@@ -25,9 +25,12 @@ class ChatMessageRequest(BaseModel):
 
 
 class CommittedStateResponse(BaseModel):
-    """ACC がコミットした CCS 主要項目。"""
+    """ACC がコミットした CCS 全項目。"""
 
+    episodic_trace: list[str]
     semantic_gist: str
+    focal_entities: list[str]
+    relational_map: list[str]
     goal_orientation: str
     constraints: list[str]
     predictive_cue: list[str]
