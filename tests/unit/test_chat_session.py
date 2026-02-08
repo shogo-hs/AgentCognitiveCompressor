@@ -1,0 +1,52 @@
+import pytest
+
+from acc.adapters.outbound.in_memory_acc_components import (
+    EchoAgentPolicyAdapter,
+    SimpleCognitiveCompressorAdapter,
+)
+from acc.application.use_cases.chat_session import (
+    ChatSessionNotFoundError,
+    ChatSessionUseCase,
+)
+
+
+def _build_use_case(*, max_sessions: int = 200) -> ChatSessionUseCase:
+    return ChatSessionUseCase(
+        cognitive_compressor=SimpleCognitiveCompressorAdapter(),
+        agent_policy=EchoAgentPolicyAdapter(),
+        max_sessions=max_sessions,
+    )
+
+
+def test_create_session_and_send_message_returns_reply() -> None:
+    use_case = _build_use_case()
+    session_id = use_case.create_session()
+
+    first_reply = use_case.send_message(session_id=session_id, message="Nginx 502 の対処を教えて")
+    second_reply = use_case.send_message(session_id=session_id, message="次に見るべき指標は？")
+
+    assert first_reply.session_id == session_id
+    assert first_reply.turn_id == 1
+    assert first_reply.reply
+    assert first_reply.memory_tokens >= 0
+
+    assert second_reply.turn_id == 2
+    assert second_reply.reply
+
+
+def test_send_message_raises_for_unknown_session() -> None:
+    use_case = _build_use_case()
+
+    with pytest.raises(ChatSessionNotFoundError):
+        use_case.send_message(session_id="unknown", message="hello")
+
+
+def test_oldest_session_is_evicted_when_limit_exceeded() -> None:
+    use_case = _build_use_case(max_sessions=1)
+    first_session = use_case.create_session()
+    second_session = use_case.create_session()
+
+    assert first_session != second_session
+
+    with pytest.raises(ChatSessionNotFoundError):
+        use_case.send_message(session_id=first_session, message="still there?")
