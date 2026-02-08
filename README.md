@@ -69,6 +69,15 @@ uv sync --dev
 - `OPENAI_API_KEY`（必須）
 - `OPENAI_MODEL`（任意、デフォルト: `gpt-4.1-mini`）
 
+モデル分離（任意）:
+
+- `OPENAI_COMPRESSOR_MODEL`（CCM 用。未設定時は `OPENAI_MODEL`）
+- `OPENAI_AGENT_MODEL`（応答生成用。未設定時は `OPENAI_MODEL`）
+
+短期対話バッファ（任意）:
+
+- `ACC_SHORT_HISTORY_TURNS`（`AgentPolicy` に渡す直近ターン数。未設定時は `2`、`0` で無効化）
+
 ## 7. ローカル起動
 
 ```bash

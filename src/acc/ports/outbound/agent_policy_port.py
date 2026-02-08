@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from acc.domain.entities.interaction import AgentDecision
+from acc.domain.entities.interaction import (
+    AgentDecision,
+    RecentDialogueTurn,
+    TurnInteractionSignal,
+)
 from acc.domain.value_objects.ccs import CompressedCognitiveState
 
 
@@ -14,8 +18,10 @@ class AgentPolicyPort(Protocol):
 
     def decide(
         self,
+        interaction_signal: TurnInteractionSignal,
+        recent_dialogue_turns: Sequence[RecentDialogueTurn],
         committed_state: CompressedCognitiveState,
         role: str,
         tools: Sequence[str],
     ) -> AgentDecision:
-        """役割と利用可能ツールを受けて意思決定結果を返す。"""
+        """最新入力・短期対話・状態・役割・利用可能ツールを受けて結果を返す。"""

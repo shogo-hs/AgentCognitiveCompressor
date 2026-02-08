@@ -18,7 +18,7 @@ from openai import (
 )
 
 from acc.domain.entities.artifact import Artifact
-from acc.domain.entities.interaction import AgentDecision, TurnInteractionSignal
+from acc.domain.entities.interaction import AgentDecision, RecentDialogueTurn, TurnInteractionSignal
 from acc.domain.value_objects.ccs import CompressedCognitiveState
 from acc.ports.outbound.agent_policy_port import AgentPolicyPort
 from acc.ports.outbound.cognitive_compressor_model_port import CognitiveCompressorModelPort
@@ -110,6 +110,9 @@ class OpenAICognitiveCompressorModelAdapter(
             " 配列フィールドは空文字を含まない文字列配列にしてください。"
             " CCS の自然言語フィールドは日本語で記述してください。"
             " ホスト名・ID・製品名など識別子は原文を保持して構いません。"
+            " semantic_gist / goal_orientation / uncertainty_signal は必ず非空にしてください。"
+            " goal_orientation が未確定なら previous_committed_state.goal_orientation を維持し、"
+            " uncertainty_signal は保守的に '高' を選択してください。"
             " 状態は簡潔かつ意思決定に必要な情報へ圧縮してください。"
         )
         prompt = _build_compressor_prompt(
@@ -129,18 +132,27 @@ class OpenAIAgentPolicyAdapter(_OpenAIResponsesBase, AgentPolicyPort):
 
     def decide(
         self,
+        interaction_signal: TurnInteractionSignal,
+        recent_dialogue_turns: Sequence[RecentDialogueTurn],
         committed_state: CompressedCognitiveState,
         role: str,
         tools: Sequence[str],
     ) -> AgentDecision:
         """CCS と役割情報を使って応答文を返す。"""
         instructions = (
-            "You are an operational assistant."
-            " Follow the constraints in the provided cognitive state."
-            " If uncertainty is high, state uncertainty explicitly."
-            " Be concise and actionable."
+            "あなたは運用支援アシスタントです。"
+            " 回答は必ず最新の user_input への直接回答から始めてください。"
+            " 既出の自己紹介や謝辞の復唱は、質問解決に必要な場合のみ許可します。"
+            " recent_dialogue_turns がある場合、"
+            "『一個前/二個前の発言』のような相対参照は recent_dialogue_turns を優先して解決してください。"
+            " バッファ外で正確に参照できない場合は、推測せず不足を明示してください。"
+            " committed_state.constraints を優先し、違反しないでください。"
+            " uncertainty_signal が高い/不明な場合は不確実性を明示してください。"
+            " 簡潔で実行可能な回答にしてください。"
         )
         prompt = _build_policy_prompt(
+            interaction_signal=interaction_signal,
+            recent_dialogue_turns=recent_dialogue_turns,
             committed_state=committed_state,
             role=role,
             tools=tools,
@@ -189,19 +201,39 @@ def _build_compressor_prompt(
 
 def _build_policy_prompt(
     *,
+    interaction_signal: TurnInteractionSignal,
+    recent_dialogue_turns: Sequence[RecentDialogueTurn],
     committed_state: CompressedCognitiveState,
     role: str,
     tools: Sequence[str],
 ) -> str:
     payload = {
+        "interaction_signal": {
+            "turn_id": interaction_signal.turn_id,
+            "user_input": interaction_signal.user_input,
+            "active_goal": interaction_signal.active_goal,
+            "active_constraints": list(interaction_signal.active_constraints),
+            "focus_entities": list(interaction_signal.focus_entities),
+            "expected_next_steps": list(interaction_signal.expected_next_steps),
+        },
+        "recent_dialogue_turns": [
+            {
+                "turn_id": turn.turn_id,
+                "user_input": turn.user_input,
+                "assistant_response": turn.assistant_response,
+            }
+            for turn in recent_dialogue_turns
+        ],
         "role": role,
         "tools": list(tools),
         "committed_state": asdict(committed_state),
     }
     return (
-        "Generate the assistant reply for the latest user query using this context JSON:\n"
+        "次の JSON を使って、最新 user_input に対する回答を作成してください。\n"
+        "最初の文で user_input に直接回答し、その後に必要なら根拠や次アクションを補足してください。\n"
+        "JSON:\n"
         f"{json.dumps(payload, ensure_ascii=False)}\n"
-        "Focus on goal and constraints."
+        "必ず goal と constraints を守ってください。"
     )
 
 

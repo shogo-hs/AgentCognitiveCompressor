@@ -6,7 +6,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from acc.domain.entities.artifact import Artifact
-from acc.domain.entities.interaction import AgentDecision, TurnInteractionSignal
+from acc.domain.entities.interaction import (
+    AgentDecision,
+    RecentDialogueTurn,
+    TurnInteractionSignal,
+)
 from acc.domain.value_objects.ccs import CompressedCognitiveState
 from acc.ports.outbound.agent_policy_port import AgentPolicyPort
 from acc.ports.outbound.artifact_qualification_port import ArtifactQualificationPort
@@ -56,6 +60,7 @@ class ACCMultiturnControlLoop:
         self,
         interaction_signal: TurnInteractionSignal,
         committed_state: CompressedCognitiveState,
+        recent_dialogue_turns: Sequence[RecentDialogueTurn] = (),
     ) -> ACCTurnResult:
         """1ターン分の ACC 更新と意思決定を実行する。"""
         recalled_artifacts = tuple(
@@ -82,6 +87,8 @@ class ACCMultiturnControlLoop:
             qualified_artifacts=qualified_artifacts,
         )
         decision = self._agent_policy.decide(
+            interaction_signal=interaction_signal,
+            recent_dialogue_turns=recent_dialogue_turns,
             committed_state=next_committed_state,
             role=self._role,
             tools=self._tools,

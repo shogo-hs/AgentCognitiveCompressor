@@ -113,3 +113,41 @@ def test_run_horizon_replaces_committed_state_every_turn() -> None:
     assert final_state == turn_results[-1].committed_state
     assert len(memory.turn_records) == 2
     assert len(memory.list_artifacts()) == len(_seed_artifacts()) + 2
+
+
+def test_recall_supports_japanese_overlap_and_skips_zero_overlap_backfill() -> None:
+    base_time = datetime(2026, 2, 8, 11, 0, tzinfo=UTC)
+    memory = InMemoryArtifactMemory(
+        seed_artifacts=(
+            Artifact(
+                artifact_id="artifact-jp-related",
+                content="Nginx 502 の対処手順を確認する",
+                source="ops-note",
+                created_at=base_time,
+            ),
+            Artifact(
+                artifact_id="artifact-jp-unrelated",
+                content="営業会議の議事録を整理する",
+                source="meeting-note",
+                created_at=base_time + timedelta(minutes=1),
+            ),
+            Artifact(
+                artifact_id="artifact-en-unrelated",
+                content="marketing campaign timeline",
+                source="chat-log",
+                created_at=base_time + timedelta(minutes=2),
+            ),
+        )
+    )
+    recall = InMemoryArtifactRecallAdapter(memory)
+
+    recalled = recall.recall_candidate_artifacts(
+        interaction_signal=TurnInteractionSignal(
+            turn_id=1,
+            user_input="Nginx 502 の対処を教えて",
+        ),
+        committed_state=CompressedCognitiveState.empty(),
+        limit=3,
+    )
+
+    assert tuple(artifact.artifact_id for artifact in recalled) == ("artifact-jp-related",)

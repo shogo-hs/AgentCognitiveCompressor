@@ -8,13 +8,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from acc.domain.entities.artifact import Artifact
-from acc.domain.entities.interaction import AgentDecision, TurnInteractionSignal
+from acc.domain.entities.interaction import AgentDecision, RecentDialogueTurn, TurnInteractionSignal
 from acc.domain.value_objects.ccs import CompressedCognitiveState
 from acc.ports.outbound.agent_policy_port import AgentPolicyPort
 from acc.ports.outbound.artifact_qualification_port import ArtifactQualificationPort
 from acc.ports.outbound.artifact_recall_port import ArtifactRecallPort
 from acc.ports.outbound.cognitive_compressor_port import CognitiveCompressorPort
 from acc.ports.outbound.evidence_store_port import EvidenceStorePort
+
+_ASCII_TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
+_JAPANESE_TOKEN_PATTERN = re.compile(r"[ぁ-んァ-ヶー一-龠々〆〤]+")
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,14 +103,6 @@ class InMemoryArtifactRecallAdapter(ArtifactRecallPort):
 
         scored_artifacts.sort(key=lambda item: (item[0], item[1]), reverse=True)
         selected = [artifact for score, _, artifact in scored_artifacts if score > 0]
-
-        if len(selected) < limit:
-            for _, _, artifact in scored_artifacts:
-                if artifact not in selected:
-                    selected.append(artifact)
-                if len(selected) >= limit:
-                    break
-
         return tuple(selected[:limit])
 
 
@@ -185,15 +180,19 @@ class EchoAgentPolicyAdapter(AgentPolicyPort):
 
     def decide(
         self,
+        interaction_signal: TurnInteractionSignal,
+        recent_dialogue_turns: Sequence[RecentDialogueTurn],
         committed_state: CompressedCognitiveState,
         role: str,
         tools: Sequence[str],
     ) -> AgentDecision:
         """ロールと状態要約を含む応答を生成する。"""
         tool_actions = tuple(f"use:{tool}" for tool in tools)
+        history_hint = f"recent={len(recent_dialogue_turns)}"
         response = (
-            f"{role} | goal={committed_state.goal_orientation} | "
-            f"gist={committed_state.semantic_gist}"
+            f"{role} | question={_summarize_text(interaction_signal.user_input, 48)} | "
+            f"goal={committed_state.goal_orientation} | "
+            f"gist={committed_state.semantic_gist} | {history_hint}"
         )
         return AgentDecision(response=response, tool_actions=tool_actions)
 
@@ -221,7 +220,24 @@ class InMemoryEvidenceStoreAdapter(EvidenceStorePort):
 
 def _normalize_tokens(text: str) -> set[str]:
     """テキストを比較用トークン集合へ正規化する。"""
-    return {token.lower() for token in re.findall(r"[A-Za-z0-9_]+", text)}
+    ascii_tokens = {token.lower() for token in _ASCII_TOKEN_PATTERN.findall(text)}
+    japanese_tokens: set[str] = set()
+
+    for chunk in _JAPANESE_TOKEN_PATTERN.findall(text):
+        normalized_chunk = chunk.strip()
+        if len(normalized_chunk) < 2:
+            continue
+        japanese_tokens.add(normalized_chunk)
+        japanese_tokens.update(_to_character_ngrams(normalized_chunk, n=2))
+
+    return ascii_tokens | japanese_tokens
+
+
+def _to_character_ngrams(text: str, *, n: int) -> set[str]:
+    """文字列から固定長 n-gram 集合を生成する。"""
+    if len(text) < n:
+        return {text}
+    return {text[index : index + n] for index in range(len(text) - n + 1)}
 
 
 def _summarize_text(text: str, max_chars: int) -> str:

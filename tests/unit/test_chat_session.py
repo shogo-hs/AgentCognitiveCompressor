@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import pytest
 
 from acc.adapters.outbound.in_memory_acc_components import (
@@ -8,6 +10,28 @@ from acc.application.use_cases.chat_session import (
     ChatSessionNotFoundError,
     ChatSessionUseCase,
 )
+from acc.domain.entities.interaction import AgentDecision, RecentDialogueTurn, TurnInteractionSignal
+from acc.domain.value_objects.ccs import CompressedCognitiveState
+
+
+class CaptureRecentHistoryPolicyAdapter:
+    """decide 時に渡される短期履歴を記録するテスト用 policy。"""
+
+    def __init__(self) -> None:
+        """履歴受信記録を初期化する。"""
+        self.received_histories: list[tuple[RecentDialogueTurn, ...]] = []
+
+    def decide(
+        self,
+        interaction_signal: TurnInteractionSignal,
+        recent_dialogue_turns: Sequence[RecentDialogueTurn],
+        committed_state: CompressedCognitiveState,
+        role: str,
+        tools: Sequence[str],
+    ) -> AgentDecision:
+        del committed_state, role, tools
+        self.received_histories.append(tuple(recent_dialogue_turns))
+        return AgentDecision(response=f"turn={interaction_signal.turn_id}")
 
 
 def _build_use_case(*, max_sessions: int = 200) -> ChatSessionUseCase:
@@ -62,3 +86,36 @@ def test_oldest_session_is_evicted_when_limit_exceeded() -> None:
 
     with pytest.raises(ChatSessionNotFoundError):
         use_case.send_message(session_id=first_session, message="still there?")
+
+
+def test_short_history_turns_keeps_latest_two_turns_by_default_behavior() -> None:
+    policy = CaptureRecentHistoryPolicyAdapter()
+    use_case = ChatSessionUseCase(
+        cognitive_compressor=SimpleCognitiveCompressorAdapter(),
+        agent_policy=policy,
+        short_history_turns=2,
+    )
+    session_id = use_case.create_session()
+
+    use_case.send_message(session_id=session_id, message="1つ目")
+    use_case.send_message(session_id=session_id, message="2つ目")
+    use_case.send_message(session_id=session_id, message="3つ目")
+    use_case.send_message(session_id=session_id, message="4つ目")
+
+    assert [len(history) for history in policy.received_histories] == [0, 1, 2, 2]
+    assert tuple(turn.turn_id for turn in policy.received_histories[-1]) == (2, 3)
+
+
+def test_short_history_turns_zero_disables_recent_history() -> None:
+    policy = CaptureRecentHistoryPolicyAdapter()
+    use_case = ChatSessionUseCase(
+        cognitive_compressor=SimpleCognitiveCompressorAdapter(),
+        agent_policy=policy,
+        short_history_turns=0,
+    )
+    session_id = use_case.create_session()
+
+    use_case.send_message(session_id=session_id, message="alpha")
+    use_case.send_message(session_id=session_id, message="beta")
+
+    assert [len(history) for history in policy.received_histories] == [0, 0]

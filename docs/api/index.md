@@ -56,3 +56,4 @@ FastAPI の `HTTPException` による標準形式を返す。
 - `2026-02-08`: 初版（Phase 5: OpenAI チャット API）
 - `2026-02-08`: `POST /api/chat/messages` に `mechanism` フィールドを追加（Phase 6）
 - `2026-02-08`: `committed_state` を CCS 全量へ拡張し日本語管理方針を追加（Phase 7）
+- `2026-02-08`: CCS 検証失敗の 502 分類と空NG項目フォールバックを追加（Phase 9）

@@ -86,6 +86,62 @@ class DummyCompressorModel(CognitiveCompressorModelPort):
         return self._payload
 
 
+def test_schema_aware_compressor_fills_empty_non_nullable_fields() -> None:
+    payload = _valid_payload()
+    payload["semantic_gist"] = "   "
+    payload["goal_orientation"] = ""
+    payload["uncertainty_signal"] = ""
+    model = DummyCompressorModel(payload)
+    compressor = SchemaAwareCognitiveCompressorAdapter(model=model)
+    previous_state = CompressedCognitiveState(
+        episodic_trace=("turn:0:準備",),
+        semantic_gist="準備中",
+        focal_entities=("nginx",),
+        relational_map=("after_http2_enable",),
+        goal_orientation="障害影響を最小化する",
+        constraints=("no_restart",),
+        predictive_cue=("次に状況を評価して応答する",),
+        uncertainty_signal="中",
+        retrieved_artifacts=(),
+    )
+    interaction_signal = TurnInteractionSignal(
+        turn_id=1,
+        user_input="Nginx 502 を抑えたい",
+        active_constraints=("no_restart",),
+    )
+
+    next_state = compressor.commit_next_state(
+        interaction_signal=interaction_signal,
+        committed_state=previous_state,
+        qualified_artifacts=(),
+    )
+
+    assert next_state.goal_orientation == "障害影響を最小化する"
+    assert "入力:" in next_state.semantic_gist
+    assert "目的:" in next_state.semantic_gist
+    assert next_state.uncertainty_signal == "高"
+
+
+def test_schema_aware_compressor_prefers_active_goal_as_fallback() -> None:
+    payload = _valid_payload()
+    payload["goal_orientation"] = "   "
+    model = DummyCompressorModel(payload)
+    compressor = SchemaAwareCognitiveCompressorAdapter(model=model)
+    interaction_signal = TurnInteractionSignal(
+        turn_id=1,
+        user_input="次の手順を整理して",
+        active_goal="復旧計画を更新する",
+    )
+
+    next_state = compressor.commit_next_state(
+        interaction_signal=interaction_signal,
+        committed_state=CompressedCognitiveState.empty(),
+        qualified_artifacts=(),
+    )
+
+    assert next_state.goal_orientation == "復旧計画を更新する"
+
+
 def test_schema_aware_compressor_runs_in_acc_loop() -> None:
     seed_artifact = Artifact(
         artifact_id="seed-1",

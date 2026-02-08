@@ -32,6 +32,7 @@ from acc.application.use_cases.chat_session import (
     ChatSessionNotFoundError,
     ChatSessionUseCase,
 )
+from acc.domain.services.ccs_schema import CCSValidationError
 
 _BASE_DIR = Path(__file__).resolve().parent
 _STATIC_HTML = _BASE_DIR / "static" / "index.html"
@@ -84,6 +85,11 @@ def _register_routes(app: FastAPI) -> None:
                 session_id=request.session_id,
                 message=request.message,
             )
+        except CCSValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
         except ChatSessionNotFoundError as exc:
@@ -138,14 +144,18 @@ def _register_routes(app: FastAPI) -> None:
 
 
 def _build_default_chat_use_case() -> ChatSessionUseCase:
+    compressor_model_name = _resolve_model_name(primary_env="OPENAI_COMPRESSOR_MODEL")
+    agent_model_name = _resolve_model_name(primary_env="OPENAI_AGENT_MODEL")
+    short_history_turns = _resolve_non_negative_int_env("ACC_SHORT_HISTORY_TURNS", default=2)
+
     compressor_model = OpenAICognitiveCompressorModelAdapter(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+        model=compressor_model_name,
         temperature=0.1,
         max_output_tokens=900,
     )
     compressor = SchemaAwareCognitiveCompressorAdapter(model=compressor_model)
     policy = OpenAIAgentPolicyAdapter(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+        model=agent_model_name,
         temperature=0.2,
         max_output_tokens=1000,
     )
@@ -155,6 +165,7 @@ def _build_default_chat_use_case() -> ChatSessionUseCase:
         role="acc-assistant",
         recall_limit=5,
         max_sessions=200,
+        short_history_turns=short_history_turns,
     )
 
 
@@ -165,3 +176,32 @@ def _load_runtime_env() -> None:
         load_dotenv(env_file, override=False)
     else:
         load_dotenv(override=False)
+
+
+def _resolve_model_name(*, primary_env: str, default: str = "gpt-4.1-mini") -> str:
+    """優先環境変数を解決し、未設定時は OPENAI_MODEL を使う。"""
+    primary_value = os.getenv(primary_env, "").strip()
+    if primary_value:
+        return primary_value
+
+    fallback_value = os.getenv("OPENAI_MODEL", "").strip()
+    if fallback_value:
+        return fallback_value
+
+    return default
+
+
+def _resolve_non_negative_int_env(env_name: str, *, default: int) -> int:
+    """非負整数環境変数を解決する。不正値は default を返す。"""
+    raw_value = os.getenv(env_name, "").strip()
+    if not raw_value:
+        return default
+
+    try:
+        resolved = int(raw_value)
+    except ValueError:
+        return default
+
+    if resolved < 0:
+        return default
+    return resolved

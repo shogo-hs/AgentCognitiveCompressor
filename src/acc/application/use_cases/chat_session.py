@@ -13,7 +13,7 @@ from acc.adapters.outbound.in_memory_acc_components import (
     TokenOverlapQualificationAdapter,
 )
 from acc.application.use_cases.acc_multiturn_control_loop import ACCMultiturnControlLoop
-from acc.domain.entities.interaction import TurnInteractionSignal
+from acc.domain.entities.interaction import RecentDialogueTurn, TurnInteractionSignal
 from acc.domain.value_objects.ccs import CompressedCognitiveState
 from acc.ports.outbound.agent_policy_port import AgentPolicyPort
 from acc.ports.outbound.cognitive_compressor_port import CognitiveCompressorPort
@@ -66,6 +66,7 @@ class _SessionContext:
     committed_state: CompressedCognitiveState
     turn_id: int
     memory: InMemoryArtifactMemory
+    recent_dialogue_turns: list[RecentDialogueTurn]
 
 
 class ChatSessionUseCase:
@@ -80,16 +81,20 @@ class ChatSessionUseCase:
         tools: Sequence[str] = (),
         recall_limit: int = 5,
         max_sessions: int = 200,
+        short_history_turns: int = 2,
     ) -> None:
         """セッション生成に必要な依存と制約を初期化する。"""
         if max_sessions < 1:
             raise ValueError("max_sessions は 1 以上である必要があります。")
+        if short_history_turns < 0:
+            raise ValueError("short_history_turns は 0 以上である必要があります。")
         self._cognitive_compressor = cognitive_compressor
         self._agent_policy = agent_policy
         self._role = role
         self._tools = tuple(tools)
         self._recall_limit = recall_limit
         self._max_sessions = max_sessions
+        self._short_history_turns = short_history_turns
         self._sessions: dict[str, _SessionContext] = {}
 
     def create_session(self) -> str:
@@ -114,6 +119,7 @@ class ChatSessionUseCase:
             committed_state=CompressedCognitiveState.empty(),
             turn_id=0,
             memory=memory,
+            recent_dialogue_turns=[],
         )
         return session_id
 
@@ -139,9 +145,16 @@ class ChatSessionUseCase:
         turn_result = session.loop.run_turn(
             interaction_signal=interaction_signal,
             committed_state=session.committed_state,
+            recent_dialogue_turns=tuple(session.recent_dialogue_turns),
         )
         session.turn_id = next_turn_id
         session.committed_state = turn_result.committed_state
+        self._append_recent_dialogue_turn(
+            session=session,
+            turn_id=next_turn_id,
+            user_input=normalized_message,
+            assistant_response=turn_result.decision.response,
+        )
         committed_state = turn_result.committed_state
         mechanism = ChatMechanismSummary(
             recalled_artifact_count=len(turn_result.recalled_artifacts),
@@ -171,6 +184,30 @@ class ChatSessionUseCase:
         """最大セッション数超過時に最古セッションを削除する。"""
         oldest_session_id = next(iter(self._sessions))
         del self._sessions[oldest_session_id]
+
+    def _append_recent_dialogue_turn(
+        self,
+        *,
+        session: _SessionContext,
+        turn_id: int,
+        user_input: str,
+        assistant_response: str,
+    ) -> None:
+        """直近参照用の短期対話バッファを更新する。"""
+        if self._short_history_turns == 0:
+            session.recent_dialogue_turns.clear()
+            return
+
+        session.recent_dialogue_turns.append(
+            RecentDialogueTurn(
+                turn_id=turn_id,
+                user_input=user_input,
+                assistant_response=assistant_response,
+            )
+        )
+        overflow = len(session.recent_dialogue_turns) - self._short_history_turns
+        if overflow > 0:
+            del session.recent_dialogue_turns[:overflow]
 
 
 def _estimate_memory_tokens(state: CompressedCognitiveState) -> int:

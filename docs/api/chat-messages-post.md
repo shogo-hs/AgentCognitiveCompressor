@@ -119,7 +119,7 @@ curl -X POST 'http://127.0.0.1:8000/api/chat/messages' \
 | --- | --- | --- | --- | --- |
 | 400 | http_error | message は空にできません。 | ボディ不正 | 入力修正 |
 | 404 | http_error | session_id が存在しません: missing-session | 不正セッションID | セッション再作成 |
-| 502 | http_error | CCS payload JSON のパースに失敗しました。 | モデル返却フォーマット不正 | 再送または運用確認 |
+| 502 | http_error | CCS payload JSON のパースに失敗しました。 | モデル返却フォーマット不正 / CCS 検証失敗 | 再送または運用確認 |
 | 503 | http_error | OpenAI 認証に失敗しました。OPENAI_API_KEY を確認してください。 | APIキー未設定/不正 | 環境変数設定 |
 
 ## 5. 備考
