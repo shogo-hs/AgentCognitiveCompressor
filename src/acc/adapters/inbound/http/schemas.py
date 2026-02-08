@@ -24,6 +24,25 @@ class ChatMessageRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10_000)
 
 
+class CommittedStateResponse(BaseModel):
+    """ACC がコミットした CCS 主要項目。"""
+
+    semantic_gist: str
+    goal_orientation: str
+    constraints: list[str]
+    predictive_cue: list[str]
+    uncertainty_signal: str
+    retrieved_artifacts: list[str]
+
+
+class MechanismResponse(BaseModel):
+    """ACC 1ターン処理の可視化情報。"""
+
+    recalled_artifact_count: int = Field(ge=0)
+    qualified_artifact_count: int = Field(ge=0)
+    committed_state: CommittedStateResponse
+
+
 class ChatMessageResponse(BaseModel):
     """チャットメッセージ送信レスポンス。"""
 
@@ -31,6 +50,7 @@ class ChatMessageResponse(BaseModel):
     turn_id: int
     reply: str
     memory_tokens: int
+    mechanism: MechanismResponse
 
 
 class ErrorResponse(BaseModel):

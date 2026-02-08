@@ -54,3 +54,4 @@ FastAPI の `HTTPException` による標準形式を返す。
 ## 5. 変更履歴
 
 - `2026-02-08`: 初版（Phase 5: OpenAI チャット API）
+- `2026-02-08`: `POST /api/chat/messages` に `mechanism` フィールドを追加（Phase 6）

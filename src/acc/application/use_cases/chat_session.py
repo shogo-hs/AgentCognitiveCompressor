@@ -24,6 +24,27 @@ class ChatSessionNotFoundError(KeyError):
 
 
 @dataclass(frozen=True, slots=True)
+class ChatCommittedStateSummary:
+    """UI/API 向けに公開する CCS 主要項目。"""
+
+    semantic_gist: str
+    goal_orientation: str
+    constraints: tuple[str, ...]
+    predictive_cue: tuple[str, ...]
+    uncertainty_signal: str
+    retrieved_artifacts: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ChatMechanismSummary:
+    """1ターン分の ACC メカニズム要約。"""
+
+    recalled_artifact_count: int
+    qualified_artifact_count: int
+    committed_state: ChatCommittedStateSummary
+
+
+@dataclass(frozen=True, slots=True)
 class ChatReply:
     """チャット応答の返却値。"""
 
@@ -31,6 +52,7 @@ class ChatReply:
     turn_id: int
     reply: str
     memory_tokens: int
+    mechanism: ChatMechanismSummary
 
 
 @dataclass(slots=True)
@@ -117,12 +139,26 @@ class ChatSessionUseCase:
         )
         session.turn_id = next_turn_id
         session.committed_state = turn_result.committed_state
+        committed_state = turn_result.committed_state
+        mechanism = ChatMechanismSummary(
+            recalled_artifact_count=len(turn_result.recalled_artifacts),
+            qualified_artifact_count=len(turn_result.qualified_artifacts),
+            committed_state=ChatCommittedStateSummary(
+                semantic_gist=committed_state.semantic_gist,
+                goal_orientation=committed_state.goal_orientation,
+                constraints=committed_state.constraints,
+                predictive_cue=committed_state.predictive_cue,
+                uncertainty_signal=committed_state.uncertainty_signal,
+                retrieved_artifacts=committed_state.retrieved_artifacts,
+            ),
+        )
 
         return ChatReply(
             session_id=session_id,
             turn_id=next_turn_id,
             reply=turn_result.decision.response,
             memory_tokens=_estimate_memory_tokens(session.committed_state),
+            mechanism=mechanism,
         )
 
     def _evict_oldest_session(self) -> None:

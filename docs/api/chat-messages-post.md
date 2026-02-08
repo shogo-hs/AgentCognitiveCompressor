@@ -59,6 +59,26 @@ curl -X POST 'http://127.0.0.1:8000/api/chat/messages' \
 | turn_id | integer | No | セッション内ターン番号 | `1` |
 | reply | string | No | ACC 経由の応答テキスト | `まず upstream latency を確認してください` |
 | memory_tokens | integer | No | CCS 推定メモリトークン数 | `82` |
+| mechanism | object | No | ACC 1ターン処理の可視化情報 | `{"recalled_artifact_count":1,...}` |
+
+### 3.2.1 `mechanism` オブジェクト
+
+| field | type | nullable | 説明 | 例 |
+| --- | --- | --- | --- | --- |
+| recalled_artifact_count | integer | No | Recall で想起した候補 Artifact 件数 | `2` |
+| qualified_artifact_count | integer | No | Qualification で採用した Artifact 件数 | `1` |
+| committed_state | object | No | Commit 後 CCS の主要項目 | `{"semantic_gist":"...","goal_orientation":"..."}` |
+
+### 3.2.2 `mechanism.committed_state` オブジェクト
+
+| field | type | nullable | 説明 | 例 |
+| --- | --- | --- | --- | --- |
+| semantic_gist | string | No | 現在ターンの要点要約 | `Nginx 502 を抑制しつつ原因確認` |
+| goal_orientation | string | No | 継続中のゴール | `reduce_502_without_restart` |
+| constraints | array[string] | No | 制約一覧 | `["no_restart","safe_change_only"]` |
+| predictive_cue | array[string] | No | 次ターンで重視すべき観点 | `["check_upstream_latency"]` |
+| uncertainty_signal | string | No | 不確実性シグナル | `medium` |
+| retrieved_artifacts | array[string] | No | CCS に取り込んだ Artifact 参照 | `["turn-evidence-1-1"]` |
 
 ### 3.3 成功レスポンス例
 
@@ -67,7 +87,21 @@ curl -X POST 'http://127.0.0.1:8000/api/chat/messages' \
   "session_id": "3e3f26cf-57f8-4f78-9b35-1f2b6154132f",
   "turn_id": 1,
   "reply": "まず upstream latency を確認し、no_restart 制約下で timeout を調整します。",
-  "memory_tokens": 82
+  "memory_tokens": 82,
+  "mechanism": {
+    "recalled_artifact_count": 1,
+    "qualified_artifact_count": 1,
+    "committed_state": {
+      "semantic_gist": "Nginx 502 の緩和策を確認する",
+      "goal_orientation": "maintain-task-consistency",
+      "constraints": [],
+      "predictive_cue": [
+        "next:assess-and-respond"
+      ],
+      "uncertainty_signal": "medium",
+      "retrieved_artifacts": []
+    }
+  }
 }
 ```
 

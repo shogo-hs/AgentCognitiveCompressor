@@ -12,9 +12,11 @@ from fastapi.responses import FileResponse
 from acc.adapters.inbound.http.schemas import (
     ChatMessageRequest,
     ChatMessageResponse,
+    CommittedStateResponse,
     CreateSessionResponse,
     ErrorResponse,
     HealthResponse,
+    MechanismResponse,
 )
 from acc.adapters.outbound.openai_chat_adapters import (
     OpenAIAgentPolicyAdapter,
@@ -107,6 +109,18 @@ def _register_routes(app: FastAPI) -> None:
             turn_id=reply.turn_id,
             reply=reply.reply,
             memory_tokens=reply.memory_tokens,
+            mechanism=MechanismResponse(
+                recalled_artifact_count=reply.mechanism.recalled_artifact_count,
+                qualified_artifact_count=reply.mechanism.qualified_artifact_count,
+                committed_state=CommittedStateResponse(
+                    semantic_gist=reply.mechanism.committed_state.semantic_gist,
+                    goal_orientation=reply.mechanism.committed_state.goal_orientation,
+                    constraints=list(reply.mechanism.committed_state.constraints),
+                    predictive_cue=list(reply.mechanism.committed_state.predictive_cue),
+                    uncertainty_signal=reply.mechanism.committed_state.uncertainty_signal,
+                    retrieved_artifacts=list(reply.mechanism.committed_state.retrieved_artifacts),
+                ),
+            ),
         )
 
     @app.get("/", response_class=FileResponse)

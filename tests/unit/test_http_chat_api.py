@@ -45,6 +45,13 @@ def test_chat_session_flow_works() -> None:
     assert payload["turn_id"] == 1
     assert payload["reply"]
     assert payload["memory_tokens"] >= 0
+    assert payload["mechanism"]["recalled_artifact_count"] >= 0
+    assert payload["mechanism"]["qualified_artifact_count"] >= 0
+    assert payload["mechanism"]["committed_state"]["semantic_gist"]
+    assert payload["mechanism"]["committed_state"]["goal_orientation"]
+    assert isinstance(payload["mechanism"]["committed_state"]["constraints"], list)
+    assert isinstance(payload["mechanism"]["committed_state"]["predictive_cue"], list)
+    assert isinstance(payload["mechanism"]["committed_state"]["retrieved_artifacts"], list)
 
 
 def test_chat_message_with_unknown_session_returns_404() -> None:
